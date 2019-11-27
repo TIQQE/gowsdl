@@ -23,9 +23,9 @@ type SOAPDecoder interface {
 type SOAPEnvelope struct {
 	// XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
 	XMLName xml.Name      `xml:"soapenv:Envelope"`
-	Soapenv string        `xml:"xmlns:soapenv"`
-	Typ     string        `xml:"xmlns:typ"`
-	V1      string        `xml:"xmlns:v1"`
+	Soapenv string        `xml:"xmlns:soapenv,attr"`
+	Typ     string        `xml:"xmlns:typ,attr"`
+	V1      string        `xml:"xmlns:v1,attr"`
 	Headers []interface{} `xml:"http://schemas.xmlsoap.org/soap/envelope/ Header"`
 	Body    SOAPBody
 }
