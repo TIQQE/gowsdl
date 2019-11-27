@@ -21,7 +21,11 @@ type SOAPDecoder interface {
 }
 
 type SOAPEnvelope struct {
-	XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
+	// XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
+	XMLName xml.Name      `xml:"soapenv:Envelope"`
+	Soapenv string        `xml:"xmlns:soapenv"`
+	Typ     string        `xml:"xmlns:typ"`
+	V1      string        `xml:"xmlns:v1"`
 	Headers []interface{} `xml:"http://schemas.xmlsoap.org/soap/envelope/ Header"`
 	Body    SOAPBody
 }
@@ -277,7 +281,11 @@ func (s *Client) Call(soapAction string, request, response interface{}) error {
 }
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}) error {
-	envelope := SOAPEnvelope{}
+	envelope := SOAPEnvelope{
+		Soapenv: "http://schemas.xmlsoap.org/soap/envelope/",
+		Typ:     "http://www.spedpoint.com/consignment/types",
+		V1:      "http://www.spedpoint.com/consignment/types/v1_0",
+	}
 
 	if s.headers != nil && len(s.headers) > 0 {
 		envelope.Headers = s.headers
