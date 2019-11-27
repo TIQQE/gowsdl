@@ -21,13 +21,19 @@ type SOAPDecoder interface {
 }
 
 type SOAPEnvelope struct {
-	// XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
-	XMLName xml.Name      `xml:"soapenv:Envelope"`
-	Soapenv string        `xml:"xmlns:soapenv,attr"`
-	Typ     string        `xml:"xmlns:typ,attr"`
-	V1      string        `xml:"xmlns:v1,attr"`
+	XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
 	Headers []interface{} `xml:"http://schemas.xmlsoap.org/soap/envelope/ Header"`
 	Body    SOAPBody
+}
+
+// SetHeaders method
+func (e *SOAPEnvelope) SetHeaders(headers []interface{}) {
+	e.Headers = headers
+}
+
+// SetContent method
+func (e *SOAPEnvelope) SetContent(content interface{}) {
+	e.Body.Content = content
 }
 
 type SOAPBody struct {
@@ -242,9 +248,10 @@ func WithMTOM() Option {
 
 // Client is soap client
 type Client struct {
-	url     string
-	opts    *options
-	headers []interface{}
+	url      string
+	opts     *options
+	headers  []interface{}
+	envelope Envelope
 }
 
 // HTTPClient is a client which can make HTTP requests
@@ -270,6 +277,11 @@ func (s *Client) AddHeader(header interface{}) {
 	s.headers = append(s.headers, header)
 }
 
+// SetEnvelope use custom envelope
+func (s *Client) SetEnvelope(e Envelope) {
+	s.envelope = e
+}
+
 // CallContext performs HTTP POST request with a context
 func (s *Client) CallContext(ctx context.Context, soapAction string, request, response interface{}) error {
 	return s.call(ctx, soapAction, request, response)
@@ -281,17 +293,15 @@ func (s *Client) Call(soapAction string, request, response interface{}) error {
 }
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}) error {
-	envelope := SOAPEnvelope{
-		Soapenv: "http://schemas.xmlsoap.org/soap/envelope/",
-		Typ:     "http://www.spedpoint.com/consignment/types",
-		V1:      "http://www.spedpoint.com/consignment/types/v1_0",
+	var envelope Envelope
+	if s.envelope != nil {
+		envelope = s.envelope
+	} else {
+		envelope = &SOAPEnvelope{}
 	}
+	envelope.SetHeaders(s.headers)
+	envelope.SetContent(request)
 
-	if s.headers != nil && len(s.headers) > 0 {
-		envelope.Headers = s.headers
-	}
-
-	envelope.Body.Content = request
 	buffer := new(bytes.Buffer)
 	var encoder SOAPEncoder
 	if s.opts.mtom {
