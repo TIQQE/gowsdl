@@ -253,6 +253,7 @@ type options struct {
 	httpHeaders      map[string]string
 	mtom             bool
 	mma              bool
+	envelope         Envelope
 }
 
 var defaultOptions = options{
@@ -334,13 +335,19 @@ func WithMIMEMultipartAttachments() Option {
 	}
 }
 
+// WithEnvelope option
+func WithEnvelope(e Envelope) Option {
+	return func(o *options) {
+		o.envelope = e
+	}
+}
+
 // Client is soap client
 type Client struct {
 	url         string
 	opts        *options
 	headers     []interface{}
 	attachments []MIMEMultipartAttachment
-	envelope    *SOAPEnvelope
 }
 
 // HTTPClient is a client which can make HTTP requests
@@ -414,22 +421,24 @@ func (s *Client) CallWithFaultDetail(soapAction string, request, response interf
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError,
 	retAttachments *[]MIMEMultipartAttachment) error {
-	// SOAP envelope capable of namespace prefixes
-	envelope := SOAPEnvelope{
-		XmlNS: XmlNsSoapEnv,
-	}
+	var envelope Envelope
 
-	if s.envelope != nil {
-		envelope = *s.envelope
-	}
-
-	if s.headers != nil && len(s.headers) > 0 {
-		envelope.Header = &SOAPHeader{
-			Headers: s.headers,
+	if s.opts.envelope != nil {
+		envelope = s.opts.envelope
+	} else {
+		// SOAP envelope capable of namespace prefixes
+		envelope = &SOAPEnvelope{
+			XmlNS: XmlNsSoapEnv,
 		}
 	}
 
-	envelope.Body.Content = request
+	if s.headers != nil && len(s.headers) > 0 {
+		envelope.SetHeader(&SOAPHeader{
+			Headers: s.headers,
+		})
+	}
+
+	envelope.SetContent(request)
 	buffer := new(bytes.Buffer)
 	var encoder SOAPEncoder
 	if s.opts.mtom && s.opts.mma {
