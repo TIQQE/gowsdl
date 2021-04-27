@@ -434,7 +434,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	if s.opts.envelope != nil {
 		envelope = s.opts.envelope
-		s.opts.debug("Using option Envelope: %+v", envelope)
+		s.opts.debug("Using Envelope from option: %+v", envelope)
 	} else {
 		// SOAP envelope capable of namespace prefixes
 		envelope = &SOAPEnvelope{
@@ -469,7 +469,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		s.opts.debug("Failed to flush encoder: %s", err.Error())
 		return err
 	}
-	s.opts.debug("buffer: %s", buffer)
+	s.opts.debug("body: %s", buffer)
 
 	req, err := http.NewRequest("POST", s.url, buffer)
 	if err != nil {
@@ -497,7 +497,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		}
 	}
 	req.Close = true
-	s.opts.debug("request: %+v", req)
+	s.opts.debug("headers: %+v", req.Header)
 
 	client := s.opts.client
 	if client == nil {
@@ -527,7 +527,10 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 			ResponseBody: body,
 		}
 	}
-	s.opts.debug("Got statusCode: %d", res.StatusCode)
+
+	responseBody, _ := ioutil.ReadAll(res.Body)
+	res.Body = ioutil.NopCloser(bytes.NewBuffer(responseBody)) // make readable again
+	s.opts.debug("Got statusCode: %d, body: %s", res.StatusCode, responseBody)
 
 	// xml Decoder (used with and without MTOM) cannot handle namespace prefixes (yet),
 	// so we have to use a namespace-less response envelope
@@ -567,8 +570,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	if err := dec.Decode(respEnvelope); err != nil {
-		body, _ := ioutil.ReadAll(res.Body)
-		s.opts.debug("Failed to decode response: %s, %s", err.Error(), body)
+		s.opts.debug("Failed to decode response: %s", err.Error())
 		return err
 	}
 
