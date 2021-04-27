@@ -340,6 +340,7 @@ type Client struct {
 	opts        *options
 	headers     []interface{}
 	attachments []MIMEMultipartAttachment
+	envelope    *SOAPEnvelope
 }
 
 // HTTPClient is a client which can make HTTP requests
@@ -416,6 +417,10 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	// SOAP envelope capable of namespace prefixes
 	envelope := SOAPEnvelope{
 		XmlNS: XmlNsSoapEnv,
+	}
+
+	if s.envelope != nil {
+		envelope = *s.envelope
 	}
 
 	if s.headers != nil && len(s.headers) > 0 {
@@ -514,7 +519,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	var mmaBoundary string
-	if s.opts.mma{
+	if s.opts.mma {
 		mmaBoundary, err = getMmaHeader(res.Header.Get("Content-Type"))
 		if err != nil {
 			return err
