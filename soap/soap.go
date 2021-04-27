@@ -254,12 +254,14 @@ type options struct {
 	mtom             bool
 	mma              bool
 	envelope         Envelope
+	debug            func(string, ...interface{})
 }
 
 var defaultOptions = options{
 	timeout:          time.Duration(30 * time.Second),
 	contimeout:       time.Duration(90 * time.Second),
 	tlshshaketimeout: time.Duration(15 * time.Second),
+	debug:            func(string, ...interface{}) {},
 }
 
 // A Option sets options such as credentials, tls, etc.
@@ -339,6 +341,13 @@ func WithMIMEMultipartAttachments() Option {
 func WithEnvelope(e Envelope) Option {
 	return func(o *options) {
 		o.envelope = e
+	}
+}
+
+// WithDebug option
+func WithDebug(fn func(message string, args ...interface{})) Option {
+	return func(o *options) {
+		o.debug = fn
 	}
 }
 
@@ -425,11 +434,13 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	if s.opts.envelope != nil {
 		envelope = s.opts.envelope
+		s.opts.debug("Using option Envelope: %+v", envelope)
 	} else {
 		// SOAP envelope capable of namespace prefixes
 		envelope = &SOAPEnvelope{
 			XmlNS: XmlNsSoapEnv,
 		}
+		s.opts.debug("Using default Envelope: %+v", envelope)
 	}
 
 	if s.headers != nil && len(s.headers) > 0 {
@@ -452,15 +463,19 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	if err := encoder.Encode(envelope); err != nil {
+		s.opts.debug("Failed to encode envelope: %s", err.Error())
 		return err
 	}
 
 	if err := encoder.Flush(); err != nil {
+		s.opts.debug("Failed to flush encoder: %s", err.Error())
 		return err
 	}
+	s.opts.debug("buffer: %s", buffer)
 
 	req, err := http.NewRequest("POST", s.url, buffer)
 	if err != nil {
+		s.opts.debug("Failed to create new request: %s", err.Error())
 		return err
 	}
 	if s.opts.auth != nil {
@@ -484,6 +499,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		}
 	}
 	req.Close = true
+	s.opts.debug("request: %+v", req)
 
 	client := s.opts.client
 	if client == nil {
@@ -500,12 +516,14 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	res, err := client.Do(req)
 	if err != nil {
+		s.opts.debug("Failed to post: %s", err.Error())
 		return err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
 		body, _ := ioutil.ReadAll(res.Body)
+		s.opts.debug("Expecting 200, got: %d, %s", res.Status, body)
 		return &HTTPError{
 			StatusCode:   res.StatusCode,
 			ResponseBody: body,
@@ -524,6 +542,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	mtomBoundary, err := getMtomHeader(res.Header.Get("Content-Type"))
 	if err != nil {
+		s.opts.debug("Failed to get mtom header: %s", err.Error())
 		return err
 	}
 
@@ -531,6 +550,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	if s.opts.mma {
 		mmaBoundary, err = getMmaHeader(res.Header.Get("Content-Type"))
 		if err != nil {
+			s.opts.debug("Failed to get mma header: %s", err.Error())
 			return err
 		}
 	}
@@ -545,6 +565,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	if err := dec.Decode(respEnvelope); err != nil {
+		s.opts.debug("Failed to decode response: %s", err.Error())
 		return err
 	}
 
