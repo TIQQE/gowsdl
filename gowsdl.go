@@ -260,6 +260,7 @@ func (g *GoWSDL) genTypes() ([]byte, error) {
 		"stripns":                  stripns,
 		"replaceReservedWords":     replaceReservedWords,
 		"replaceAttrReservedWords": replaceAttrReservedWords,
+		"normalize":                normalize,
 		"makePublic":               g.makePublicFn,
 		"makeFieldPublic":          makePublic,
 		"comment":                  comment,
@@ -284,6 +285,7 @@ func (g *GoWSDL) genOperations() ([]byte, error) {
 		"toGoType":             toGoType,
 		"stripns":              stripns,
 		"replaceReservedWords": replaceReservedWords,
+		"normalize":            normalize,
 		"makePublic":           g.makePublicFn,
 		"makePrivate":          makePrivate,
 		"findType":             g.findType,
@@ -306,6 +308,7 @@ func (g *GoWSDL) genHeader() ([]byte, error) {
 		"toGoType":             toGoType,
 		"stripns":              stripns,
 		"replaceReservedWords": replaceReservedWords,
+		"normalize":            normalize,
 		"makePublic":           g.makePublicFn,
 		"findType":             g.findType,
 		"comment":              comment,
@@ -399,6 +402,9 @@ func replaceAttrReservedWords(identifier string) string {
 // Normalizes value to be used as a valid Go identifier, avoiding compilation issues
 func normalize(value string) string {
 	mapping := func(r rune) rune {
+		if r == '.' {
+			return '_'
+		}
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
 			return r
 		}
@@ -424,9 +430,9 @@ var xsd2GoTypes = map[string]string{
 	"byte":          "int8",
 	"long":          "int64",
 	"boolean":       "bool",
-	"datetime":      "time.Time",
-	"date":          "time.Time",
-	"time":          "time.Time",
+	"datetime":      "soap.XSDDateTime",
+	"date":          "soap.XSDDate",
+	"time":          "soap.XSDTime",
 	"base64binary":  "[]byte",
 	"hexbinary":     "[]byte",
 	"unsignedint":   "uint32",
@@ -449,7 +455,7 @@ func removeNS(xsdType string) string {
 	return r[0]
 }
 
-func toGoType(xsdType string) string {
+func toGoType(xsdType string, nillable bool) string {
 	// Handles name space, ie. xsd:string, xs:string
 	r := strings.Split(xsdType, ":")
 
@@ -462,6 +468,9 @@ func toGoType(xsdType string) string {
 	value := xsd2GoTypes[strings.ToLower(t)]
 
 	if value != "" {
+		if nillable {
+			value = "*" + value
+		}
 		return value
 	}
 
@@ -601,7 +610,7 @@ var basicTypes = map[string]string{
 }
 
 func isBasicType(identifier string) bool {
-	if _, exsits := basicTypes[identifier]; exsits {
+	if _, exists := basicTypes[identifier]; exists {
 		return true
 	}
 	return false
