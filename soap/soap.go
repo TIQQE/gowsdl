@@ -521,12 +521,13 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	if res.StatusCode >= 400 {
 		body, _ := ioutil.ReadAll(res.Body)
-		s.opts.debug("Expecting 200, got: %d, %s", res.Status, body)
+		s.opts.debug("Expecting 200, got: %d, %s", res.StatusCode, body)
 		return &HTTPError{
 			StatusCode:   res.StatusCode,
 			ResponseBody: body,
 		}
 	}
+	s.opts.debug("Got statusCode: %d", res.StatusCode)
 
 	// xml Decoder (used with and without MTOM) cannot handle namespace prefixes (yet),
 	// so we have to use a namespace-less response envelope
@@ -555,15 +556,19 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	var dec SOAPDecoder
 	if mtomBoundary != "" {
+		s.opts.debug("Using mtom decoder")
 		dec = newMtomDecoder(res.Body, mtomBoundary)
 	} else if mmaBoundary != "" {
+		s.opts.debug("Using mma decoder")
 		dec = newMmaDecoder(res.Body, mmaBoundary)
 	} else {
+		s.opts.debug("Using xml decoder")
 		dec = xml.NewDecoder(res.Body)
 	}
 
 	if err := dec.Decode(respEnvelope); err != nil {
-		s.opts.debug("Failed to decode response: %s", err.Error())
+		body, _ := ioutil.ReadAll(res.Body)
+		s.opts.debug("Failed to decode response: %s, %s", err.Error(), body)
 		return err
 	}
 
