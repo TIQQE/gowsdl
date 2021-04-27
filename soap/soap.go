@@ -444,9 +444,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	if s.headers != nil && len(s.headers) > 0 {
-		envelope.SetHeader(&SOAPHeader{
-			Headers: s.headers,
-		})
+		envelope.SetHeaders(s.headers)
 	}
 
 	envelope.SetContent(request)

@@ -2,15 +2,18 @@ package soap
 
 // Envelope interface
 type Envelope interface {
-	SetHeader(*SOAPHeader)
+	SetHeaders([]interface{})
 	SetContent(interface{})
 }
 
 var _ Envelope = (*SOAPEnvelope)(nil)
 
-// SetHeader func
-func (se *SOAPEnvelope) SetHeader(header *SOAPHeader) {
-	se.Header = header
+// SetHeaders func
+func (se *SOAPEnvelope) SetHeaders(headers []interface{}) {
+	if se.Header == nil {
+		se.Header = &SOAPHeader{}
+	}
+	se.Header.Headers = headers
 }
 
 // SetContent func
